@@ -1,7 +1,7 @@
 import os
 import requests
-
-RIOT_API_KEY = os.getenv("RIOT_API_KEY")
+import streamlit as st
+RIOT_API_KEY = st.secrets["riot"]["api_key"]
 
 REGION_ROUTING = {
     "euw1": "europe",
