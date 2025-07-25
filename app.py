@@ -11,6 +11,9 @@ st.markdown("**Le coach LoL brutalement honnête.**")
 if "summoner_name" not in st.session_state:
     st.session_state["summoner_name"] = ""
 
+if "region" not in st.session_state:
+    st.session_state["region"] = ""
+
 if "page" not in st.session_state:
     st.session_state["page"] = None
 
@@ -24,9 +27,26 @@ if "puuid" not in st.session_state:
 pseudo = st.text_input("🎮 Entre ton pseudo League of Legends", value=st.session_state["summoner_name"])
 st.session_state["summoner_name"] = pseudo.strip()
 
+# --- CHOIX DU SERVEUR ---
+regions = {
+    "EUW (Europe West)": "euw1",
+    "EUNE (Europe Nordic & East)": "eun1",
+    "NA (North America)": "na1",
+    "KR (Korea)": "kr",
+    "BR (Brazil)": "br1",
+    "JP (Japan)": "jp1",
+    "OCE (Oceania)": "oc1",
+    "LAN (Latin America North)": "la1",
+    "LAS (Latin America South)": "la2",
+    "RU (Russia)": "ru",
+    "TR (Turkey)": "tr1"
+}
+region_choice = st.selectbox("🌍 Choisis ton serveur", list(regions.keys()))
+st.session_state["region"] = regions[region_choice]
+
 # --- VALIDATION DU JOUEUR ---
 if st.button("Valider"):
-    result = get_puuid_from_summoner(st.session_state["summoner_name"])
+    result = get_puuid_from_summoner(st.session_state["summoner_name"], st.session_state["region"])
     if "error" in result:
         st.session_state["joueur_valide"] = False
         st.session_state["page"] = None
@@ -39,7 +59,7 @@ if st.button("Valider"):
 
 # --- ACCÈS BLOQUÉ SI JOUEUR NON VALIDE ---
 if not st.session_state["joueur_valide"]:
-    st.info("Merci de valider un pseudo LoL existant pour accéder aux fonctionnalités.")
+    st.info("Merci de valider un pseudo LoL existant et un serveur pour accéder aux fonctionnalités.")
     st.stop()
 
 # --- MENU PRINCIPAL ---
@@ -64,13 +84,13 @@ st.markdown("---")
 # --- AFFICHAGE DYNAMIQUE PAR PAGE ---
 if st.session_state["page"] == "last_game":
     st.subheader("📊 Analyse de ta dernière game")
-    st.info(f"Analyse en cours pour **{st.session_state['summoner_name']}**...")
+    st.info(f"Analyse en cours pour **{st.session_state['summoner_name']}** sur **{st.session_state['region']}**...")
     st.success("Mock : 🛡️ Support protecteur")
     st.markdown("_Tu joues safe, mais t’oublies parfois de ward. On en parle._")
 
 elif st.session_state["page"] == "profile":
     st.subheader("🧠 Analyse de ton profil")
-    st.info(f"Analyse en cours pour **{st.session_state['summoner_name']}**...")
+    st.info(f"Analyse en cours pour **{st.session_state['summoner_name']}** sur **{st.session_state['region']}**...")
     st.success("Mock : 🧨 Jungler explosif")
     st.markdown("_Tu joues pour toi, et c’est souvent clutch. Mais tu pings pas, et tu tilt si le mid roam pas._")
 

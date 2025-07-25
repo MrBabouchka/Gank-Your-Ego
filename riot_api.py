@@ -1,29 +1,127 @@
-import requests
 import streamlit as st
+from riot_api import (
+    get_puuid_from_summoner,
+    get_last_game_id,
+    get_match_data
+)
 
-# Chargement de la clé Riot depuis secrets.toml
-RIOT_API_KEY = st.secrets["riot"]["api_key"]
+# Configuration générale
+st.set_page_config(page_title="Gank Your Ego", page_icon="🧠", layout="centered")
 
-# URL de base pour l'Europe (valable pour la plupart des joueurs EUW/EUNE)
-RIOT_SUMMONER_URL = "https://euw1.api.riotgames.com/lol/summoner/v4/summoners/by-name/"
+st.title("🧠 Gank Your Ego")
+st.markdown("**Le coach LoL brutalement honnête.**")
 
-def get_puuid_from_summoner(summoner_name):
-    """
-    Récupère le PUUID (identifiant global unique) à partir du pseudo d'un joueur LoL.
-    Retourne un dictionnaire avec puuid, summonerId, level, etc.
-    """
-    url = f"{RIOT_SUMMONER_URL}{summoner_name}"
-    headers = {
-        "X-Riot-Token": RIOT_API_KEY
-    }
+# --- INIT SESSION STATE ---
+if "summoner_name" not in st.session_state:
+    st.session_state["summoner_name"] = ""
 
-    try:
-        response = requests.get(url, headers=headers)
-        if response.status_code == 200:
-            return response.json()  # Contient puuid, summonerId, accountId, etc.
-        elif response.status_code == 404:
-            return {"error": "Joueur introuvable"}
-        else:
-            return {"error": f"Erreur Riot API : {response.status_code}"}
-    except Exception as e:
-        return {"error": f"Exception : {str(e)}"}
+if "region" not in st.session_state:
+    st.session_state["region"] = ""
+
+if "page" not in st.session_state:
+    st.session_state["page"] = None
+
+if "joueur_valide" not in st.session_state:
+    st.session_state["joueur_valide"] = False
+
+if "puuid" not in st.session_state:
+    st.session_state["puuid"] = ""
+
+# --- CHAMP PSEUDO ---
+pseudo = st.text_input("🎮 Entre ton pseudo League of Legends", value=st.session_state["summoner_name"])
+st.session_state["summoner_name"] = pseudo.strip()
+
+# --- CHOIX DU SERVEUR ---
+regions = {
+    "EUW (Europe West)": "euw1",
+    "EUNE (Europe Nordic & East)": "eun1",
+    "NA (North America)": "na1",
+    "KR (Korea)": "kr",
+    "BR (Brazil)": "br1",
+    "JP (Japan)": "jp1",
+    "OCE (Oceania)": "oc1",
+    "LAN (Latin America North)": "la1",
+    "LAS (Latin America South)": "la2",
+    "RU (Russia)": "ru",
+    "TR (Turkey)": "tr1"
+}
+region_choice = st.selectbox("🌍 Choisis ton serveur", list(regions.keys()))
+st.session_state["region"] = regions[region_choice]
+
+# --- VALIDATION DU JOUEUR ---
+if st.button("Valider"):
+    result = get_puuid_from_summoner(st.session_state["summoner_name"], st.session_state["region"])
+    if "error" in result:
+        st.session_state["joueur_valide"] = False
+        st.session_state["page"] = None
+        st.error(result["error"])
+    else:
+        st.session_state["joueur_valide"] = True
+        st.session_state["puuid"] = result["puuid"]
+        st.success(f"Joueur trouvé ! Niveau : {result['summonerLevel']}")
+        st.code(result["puuid"], language="bash")
+
+# --- ACCÈS BLOQUÉ SI JOUEUR NON VALIDE ---
+if not st.session_state["joueur_valide"]:
+    st.info("Merci de valider un pseudo LoL existant et un serveur pour accéder aux fonctionnalités.")
+    st.stop()
+
+# --- MENU PRINCIPAL ---
+st.markdown("## 🚀 Que veux-tu faire ?")
+col1, col2 = st.columns(2)
+
+with col1:
+    if st.button("Analyser ma dernière game"):
+        st.session_state["page"] = "last_game"
+    if st.button("Aide à la Draft"):
+        st.session_state["page"] = "draft"
+
+with col2:
+    if st.button("Analyser mon profil"):
+        st.session_state["page"] = "profile"
+    if st.button("Entraînement personnalisé"):
+        st.session_state["page"] = "training"
+
+# --- SÉPARATEUR ---
+st.markdown("---")
+
+# --- AFFICHAGE DYNAMIQUE PAR PAGE ---
+if st.session_state["page"] == "last_game":
+    st.subheader("📊 Analyse de ta dernière game")
+    st.info(f"Analyse en cours pour **{st.session_state['summoner_name']}** sur **{st.session_state['region']}**...")
+
+    puuid = st.session_state["puuid"]
+    region = st.session_state["region"]
+
+    # Récupération de la dernière game
+    match_id = get_last_game_id(puuid, region)
+    if isinstance(match_id, dict) and "error" in match_id:
+        st.error(match_id["error"])
+        st.stop()
+
+    st.success(f"ID de la dernière game : `{match_id}`")
+
+    # Récupération des données de la game
+    match_data = get_match_data(match_id, region)
+    if isinstance(match_data, dict) and "error" in match_data:
+        st.error(match_data["error"])
+    else:
+        st.markdown("### 📄 Données brutes de la partie")
+        st.json(match_data)
+
+elif st.session_state["page"] == "profile":
+    st.subheader("🧠 Analyse de ton profil")
+    st.info(f"Analyse en cours pour **{st.session_state['summoner_name']}** sur **{st.session_state['region']}**...")
+    st.success("Mock : 🧨 Jungler explosif")
+    st.markdown("_Tu joues pour toi, et c’est souvent clutch. Mais tu pings pas, et tu tilt si le mid roam pas._")
+
+elif st.session_state["page"] == "draft":
+    st.subheader("📋 Aide à la Draft")
+    st.markdown("_Fonctionnalité à venir. Prépare-toi à bannir intelligemment (et pas juste Teemo)._\n")
+
+elif st.session_state["page"] == "training":
+    st.subheader("💪 Entraînement personnalisé")
+    st.markdown("_Bientôt dispo : un plan sur 3 games pour devenir plus clutch que Faker._")
+
+elif st.session_state["page"] is None:
+    st.info("Sélectionne une action dans le menu ci-dessus pour commencer.")
